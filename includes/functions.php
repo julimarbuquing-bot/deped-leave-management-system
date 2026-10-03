@@ -26,39 +26,38 @@ function generateApplicationNumber() {
 function getEmployeeByUserId($userId) {
     $conn = db();
     $stmt = $conn->prepare('SELECT e.*, s.school_name, o.office_name, p.title AS position_title FROM employees e LEFT JOIN schools s ON s.id = e.school_id LEFT JOIN offices o ON o.id = e.office_id LEFT JOIN positions p ON p.id = e.position_id WHERE e.user_id = ? LIMIT 1');
-    $stmt->execute([$userId]);
+    $stmt->execute(array($userId));
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
 function getEmployeeById($employeeId) {
     $conn = db();
     $stmt = $conn->prepare('SELECT e.*, s.school_name, o.office_name, p.title AS position_title FROM employees e LEFT JOIN schools s ON s.id = e.school_id LEFT JOIN offices o ON o.id = e.office_id LEFT JOIN positions p ON p.id = e.position_id WHERE e.id = ? LIMIT 1');
-    $stmt->execute([$employeeId]);
+    $stmt->execute(array($employeeId));
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
 function getRoleNameBySlug($slug) {
     $conn = db();
     $stmt = $conn->prepare('SELECT name FROM roles WHERE slug = ? LIMIT 1');
-    $stmt->execute([$slug]);
+    $stmt->execute(array($slug));
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $row['name'] ?? ucfirst(str_replace('_', ' ', $slug));
+    return $row ? $row['name'] : ucfirst(str_replace('_', ' ', $slug));
 }
 
 function auditLog($action, $details = '', $applicationId = null) {
     $user = currentUser();
     $conn = db();
     $stmt = $conn->prepare('INSERT INTO audit_logs (user_id, action, details, application_id, ip_address, created_at) VALUES (?, ?, ?, ?, ?, NOW())');
-    $stmt->execute([
-        $user['id'] ?? null,
-        $action,
-        $details,
-        $applicationId,
-        $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1'
-    ]);
+    $userId = $user ? $user['id'] : null;
+    $ipAddress = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '127.0.0.1';
+    $stmt->execute(array($userId, $action, $details, $applicationId, $ipAddress));
 }
 
 function setFlash($key, $message) {
+    if (!isset($_SESSION['flash'])) {
+        $_SESSION['flash'] = array();
+    }
     $_SESSION['flash'][$key] = $message;
 }
 
@@ -72,7 +71,7 @@ function getFlash($key) {
 }
 
 function statusBadge($status) {
-    $map = [
+    $map = array(
         'DRAFT' => 'secondary',
         'SUBMITTED' => 'primary',
         'PENDING_APPROVAL' => 'warning',
@@ -83,8 +82,9 @@ function statusBadge($status) {
         'CANCELLED' => 'dark',
         'RELEASED' => 'success',
         'ARCHIVED' => 'secondary'
-    ];
-    return $map[strtoupper($status)] ?? 'secondary';
+    );
+    $statusUpper = strtoupper($status);
+    return isset($map[$statusUpper]) ? $map[$statusUpper] : 'secondary';
 }
 
 function canViewApplication($applicationId) {
@@ -95,13 +95,13 @@ function canViewApplication($applicationId) {
 
     $conn = db();
     $stmt = $conn->prepare('SELECT e.* FROM leave_applications la LEFT JOIN employees e ON e.id = la.employee_id WHERE la.id = ? LIMIT 1');
-    $stmt->execute([$applicationId]);
+    $stmt->execute(array($applicationId));
     $application = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$application) {
         return false;
     }
 
-    $role = strtolower($user['role_slug'] ?? '');
+    $role = strtolower(isset($user['role_slug']) ? $user['role_slug'] : '');
     $userEmployee = getEmployeeByUserId($user['id']);
 
     if ($role === 'administrator' || $role === 'hr_personnel_administrator') {
@@ -133,25 +133,29 @@ function getHolidayDates() {
     $conn = db();
     $stmt = $conn->query('SELECT holiday_date FROM holidays WHERE status = 1');
     $rows = $stmt->fetchAll();
-    return array_map(function($r) { return $r['holiday_date']; }, $rows);
+    $result = array();
+    foreach ($rows as $r) {
+        $result[] = $r['holiday_date'];
+    }
+    return $result;
 }
 
 function getCurrentApproverForApplication($applicationId) {
     $conn = db();
     $stmt = $conn->prepare('SELECT la.current_approver_id, u.username, e.first_name, e.last_name, s.school_name, o.office_name FROM leave_applications la LEFT JOIN users u ON u.id = la.current_approver_id LEFT JOIN employees e ON e.user_id = u.id LEFT JOIN schools s ON s.id = e.school_id LEFT JOIN offices o ON o.id = e.office_id WHERE la.id = ? LIMIT 1');
-    $stmt->execute([$applicationId]);
+    $stmt->execute(array($applicationId));
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
 function getApplicationTimeline($applicationId) {
     $conn = db();
     $stmt = $conn->prepare('SELECT ah.*, u.username, e.first_name, e.last_name FROM approval_history ah LEFT JOIN users u ON u.id = ah.action_by LEFT JOIN employees e ON e.user_id = u.id WHERE ah.application_id = ? ORDER BY ah.created_at ASC');
-    $stmt->execute([$applicationId]);
+    $stmt->execute(array($applicationId));
     return $stmt->fetchAll();
 }
 
 function statusList() {
-    return [
+    return array(
         'DRAFT',
         'SUBMITTED',
         'PENDING_APPROVAL',
@@ -162,7 +166,7 @@ function statusList() {
         'CANCELLED',
         'RELEASED',
         'ARCHIVED'
-    ];
+    );
 }
 
 function redirect($location) {
