@@ -1,18 +1,19 @@
 <?php
-require_once __DIR__ . '/config/db.php';
-require_once __DIR__ . '/includes/functions.php';
-require_once __DIR__ . '/includes/auth.php';
-requireLogin();
+$host = 'localhost';
+$dbname = 'depedsdois_leave';
+$dbuser = 'root';
+$dbpass = '';
 
-$user = currentUser();
-$role = strtolower($user['role_slug'] ?? 'applicant');
+try {
+    $pdo = new PDO('mysql:host=' . $host . ';dbname=' . $dbname . ';charset=utf8mb4', $dbuser, $dbpass, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ]);
+} catch (PDOException $e) {
+    die('Database connection failed: ' . $e->getMessage());
+}
 
-if ($role === 'administrator') {
-    header('Location: admin/dashboard.php');
-    exit;
+function db() {
+    global $pdo;
+    return $pdo;
 }
-if (in_array($role, ['school_head', 'asds_division_approver', 'office_approver', 'hr_personnel_administrator'], true)) {
-    header('Location: approver/dashboard.php');
-    exit;
-}
-header('Location: applicant/dashboard.php');
