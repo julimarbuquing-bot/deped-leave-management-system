@@ -12,16 +12,17 @@ if (isLoggedIn()) {
     exit;
 }
 
-$errors = [];
+$errors = array();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
-    $password = trim($_POST['password'] ?? '');
+    $username = isset($_POST['username']) ? trim($_POST['username']) : '';
+    $password = isset($_POST['password']) ? trim($_POST['password']) : '';
+
     if ($username === '' || $password === '') {
         $errors[] = 'Username and password are required.';
     } else {
         $conn = db();
         $stmt = $conn->prepare('SELECT u.*, r.slug AS role_slug FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.username = ? AND u.status = 1 LIMIT 1');
-        $stmt->execute([$username]);
+        $stmt->execute(array($username));
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && $user['password'] === $password) {
